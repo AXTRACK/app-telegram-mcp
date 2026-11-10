@@ -193,6 +193,10 @@ def _validate_acl_document(doc: dict[str, Any], path: Path) -> None:
                 f"ACL principal identifier prefix {prefix}... all_chats must be boolean: {path}"
             )
         rule = PrincipalAclRule.from_dict(raw)
+        if rule.all_chats and not rule.read_only:
+            raise AclConfigError(
+                f"ACL principal identifier prefix {prefix}... all_chats requires read_only: true: {path}"
+            )
         if rule.read_only and not rule.chats and not rule.all_chats:
             raise AclConfigError(
                 f"ACL principal identifier prefix {prefix}... has read_only: true but "
