@@ -81,11 +81,26 @@ def test_existing_limited_principal_still_restricted(all_chats_acl):
     assert check_pre_tool_access("get_messages", {"chat_id": -100123})["ok"] is False
 
 
-@pytest.mark.parametrize("value", ["yes", "1", "[]"])
+@pytest.mark.parametrize("value", ['"yes"', '"1"', '"[]"'])
 def test_all_chats_requires_boolean_value(tmp_path: Path, value: str):
     path = tmp_path / "acl.yaml"
     path.write_text(
         f"principals:\n  analyst:\n    all_chats: {value}\n    read_only: true\n",
+        encoding="utf-8",
+    )
+    config = ServerConfig(_cli_parse_args=[])
+    config.server_mode = ServerMode.HTTP_AUTH
+    config.acl_enabled = True
+    config.acl_config_path = str(path)
+    set_config(config)
+    with pytest.raises(AclConfigError, match="all_chats"):
+        validate_acl_config()
+
+
+def test_all_chats_requires_read_only(tmp_path: Path):
+    path = tmp_path / "acl.yaml"
+    path.write_text(
+        "principals:\\n  unsafe:\\n    all_chats: true\\n    read_only: false\\n",
         encoding="utf-8",
     )
     config = ServerConfig(_cli_parse_args=[])
