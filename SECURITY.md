@@ -64,11 +64,12 @@ Treat the ACL file like a secret (contains principal identifier strings). Restri
 | **bot** | Channel automation only | channel ids | false | false | false |
 | **power-principal** *(optional, see example)* | Needs raw Telegram API access | non-empty list | false | true | true |
 
-`read_only: true` **requires** a non-empty `chats` list (the server rejects startup if an analyst-style entry has no chats).
+`read_only: true` **requires** a non-empty `chats` list **unless** `all_chats: true` is explicitly set. `all_chats: true` is valid only together with `read_only: true`, allows discovery and reading across the authenticated session, and does not allow writes or raw MTProto. The global `blocked_peers` denylist still applies. Existing restricted chat lanes are unchanged.
 
 ### Principal lane settings
 
 - **`chats`**: Chat ids, `@username`, or `me` (Saved Messages) this principal may use.
+- **`all_chats`**: Optional boolean, default false. With `read_only: true`, permits read/discovery/search of all session-accessible chats without a per-chat allowlist. It does not override `blocked_peers` or permit writes/MTProto.
 - **Listed principal with empty `chats`** (`chats: []` or `chats` omitted): Chat tools are **rejected with an error** (not an empty result list). Applies to `find_chats`, `search_messages_globally`, reads/writes in any chat, and `send_message_to_phone`.
 - **`read_only`**: Blocks send, edit, `invoke_mtproto`, and the HTTP MTProto bridge (`/mtproto-api/*`).
 - **`allow_global_search`**: When false, blocks `search_messages_globally` and raw MTProto.
@@ -146,6 +147,17 @@ When **`blocked_peers`** is configured, the denylist applies on http-auth for **
 | “blocked peer … denied for this deployment” | Peer is on `blocked_peers` denylist | Remove peer from tool args; adjust denylist if policy allows; see numeric-id guidance above |
 | “invalid params_json” with blocked_peers | Malformed JSON when denylist is active | Fix JSON or omit `params_json` |
 | Server refuses to start | Missing ACL file, invalid YAML, or legacy `tokens:` key | Create file; rename `tokens:` → `principals:`; fix malformed entries; ensure `read_only` has `chats`; fix `blocked_peers` list shape |
+
+Example unrestricted read-only principal (replace the identifier with your own credential; do not commit real credentials):
+
+```yaml
+principals:
+  REPLACE_WITH_PRINCIPAL_ID:
+    all_chats: true
+    read_only: true
+    allow_global_search: true
+    allow_mtproto: false
+```
 
 No MCP tool mutates ACL in v1 — edit the file on the server and restart.
 
