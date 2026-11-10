@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 from src.client.connection import get_connected_client
 from src.tools.chat_discovery.find_chats import find_chats_impl
 
-MSK = ZoneInfo("Europe/Moscow")
+LOCAL_TZ = ZoneInfo("Europe/Amsterdam")
 
 
 async def run_find_chats_date_filtering_test():
@@ -74,10 +74,9 @@ async def run_find_chats_date_filtering_test():
                 f"  [{c.get('id')}] {c.get('title') or c.get('first_name', 'Unknown')} - {date}"
             )
 
-    # Test 2: find_chats with min_date (Moscow time today = 2026-04-23 UTC)
+    # Test 2: find_chats with a fixed historical min_date
     print("\n--- Test 2: find_chats with min_date=2026-04-23 ---")
-    # Moscow is UTC+3, so today in Moscow (2026-04-24) is 2026-04-23 00:00 UTC
-    print("Using min_date=2026-04-23 UTC (which is 2026-04-24 Moscow time)")
+    print("Using min_date=2026-04-23 (fixed historical date)")
     result = await find_chats_impl(query=None, limit=50, min_date="2026-04-23")
     if "error" in result:
         print(f"ERROR: {result['error']}")
@@ -121,16 +120,16 @@ async def run_find_chats_date_filtering_test():
         chats = result.get("chats", [])
         print(f"Found {len(chats)} chats")
 
-    # Test 5: find_chats with filter "Без каналов" and min_date (start of day, Moscow)
-    start_today_msk = datetime.now(MSK).replace(
+    # Test 5: find_chats with filter "Без каналов" and min_date (start of day, Amsterdam)
+    start_today_msk = datetime.now(LOCAL_TZ).replace(
         hour=0, minute=0, second=0, microsecond=0
     )
     min_date_msk = start_today_msk.isoformat()
     print(
-        "\n--- Test 5: find_chats with folder='Без каналов' and min_date (Moscow) ---"
+        "\n--- Test 5: find_chats with folder='Без каналов' and min_date (Amsterdam) ---"
     )
     print(
-        f"Using min_date={min_date_msk} (start of current calendar day, Europe/Moscow; "
+        f"Using min_date={min_date_msk} (start of current calendar day, Europe/Amsterdam; "
         f"calendar date {start_today_msk.date()})"
     )
     result = await find_chats_impl(
