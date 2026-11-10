@@ -12,7 +12,17 @@ from src.server_components.session_acl import (
     check_pre_tool_access,
     filter_tool_result,
     validate_acl_config,
+    clear_acl_cache,
 )
+
+
+@pytest.fixture(autouse=True)
+def reset_acl_state():
+    clear_acl_cache()
+    set_request_token(None)
+    yield
+    clear_acl_cache()
+    set_request_token(None)
 
 
 @pytest.fixture
@@ -100,7 +110,7 @@ def test_all_chats_requires_boolean_value(tmp_path: Path, value: str):
 def test_all_chats_requires_read_only(tmp_path: Path):
     path = tmp_path / "acl.yaml"
     path.write_text(
-        "principals:\\n  unsafe:\\n    all_chats: true\\n    read_only: false\\n",
+        "principals:\n  unsafe:\n    all_chats: true\n    read_only: false\n",
         encoding="utf-8",
     )
     config = ServerConfig(_cli_parse_args=[])
