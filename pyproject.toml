@@ -108,6 +108,7 @@ line-ending = "auto"
 dev = [
     "ruff",
     "pytest",
+    "tzdata; sys_platform == 'win32'",
     "pytest-asyncio",
     "pytest-cov",
     "pytest-xdist",
