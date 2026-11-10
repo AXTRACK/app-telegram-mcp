@@ -66,7 +66,7 @@ _MTPROTO_NOT_ALLOWED_DENY_MSG = (
     "Set allow_mtproto: true in the principal entry to opt in."
 )
 _KNOWN_TOKEN_ACL_KEYS = frozenset(
-    {"chats", "read_only", "allow_global_search", "allow_mtproto"}
+    {"chats", "all_chats", "read_only", "allow_global_search", "allow_mtproto"}
 )
 _BLOCKED_PEER_DENY_MSG = (
     "Session ACL: blocked peer ({ref}) is denied for this deployment. See SECURITY.md."
@@ -89,6 +89,7 @@ _blocked_peers_cache: frozenset[str | int] | None = None
 @dataclass(frozen=True)
 class PrincipalAclRule:
     chats: frozenset[str | int] = field(default_factory=frozenset)
+    all_chats: bool = False
     read_only: bool = False
     allow_global_search: bool = True
     allow_mtproto: bool = False
@@ -102,6 +103,7 @@ class PrincipalAclRule:
             chats.add(_normalize_chat_ref(item))
         return cls(
             chats=frozenset(chats),
+            all_chats=data.get("all_chats", False) is True,
             read_only=bool(data.get("read_only", False)),
             allow_global_search=bool(data.get("allow_global_search", True)),
             allow_mtproto=bool(data.get("allow_mtproto", False)),
@@ -186,8 +188,16 @@ def _validate_acl_document(doc: dict[str, Any], path: Path) -> None:
                 f"ACL config entry for principal identifier prefix {prefix}... must be "
                 f"a mapping, not {type(raw).__name__}: {path}"
             )
+        if "all_chats" in raw and not isinstance(raw["all_chats"], bool):
+            raise AclConfigError(
+                f"ACL principal identifier prefix {prefix}... all_chats must be boolean: {path}"
+            )
         rule = PrincipalAclRule.from_dict(raw)
-        if rule.read_only and not rule.chats:
+        if rule.all_chats and not rule.read_only:
+            raise AclConfigError(
+                f"ACL principal identifier prefix {prefix}... all_chats requires read_only: true: {path}"
+            )
+        if rule.read_only and not rule.chats and not rule.all_chats:
             raise AclConfigError(
                 f"ACL principal identifier prefix {prefix}... has read_only: true but "
                 f"empty or missing chats. Analyst profile requires a non-empty chat "
@@ -230,7 +240,7 @@ def _warn_principal_acl_entry(
             sorted(unknown),
             path,
         )
-    if not rule.chats and "chats" not in raw:
+    if not rule.chats and not rule.all_chats and "chats" not in raw:
         logger.warning(
             "ACL config principal identifier prefix %s... has missing chats key (empty lane): %s",
             prefix,
@@ -591,7 +601,7 @@ def _filter_blocked_peers_from_result(operation: str, result: dict[str, Any]) ->
 
 
 def _is_empty_lane(rule: PrincipalAclRule) -> bool:
-    return not rule.chats
+    return not rule.chats and not rule.all_chats
 
 
 def _empty_lane_deny_msg(rule: PrincipalAclRule) -> str:
@@ -601,6 +611,8 @@ def _empty_lane_deny_msg(rule: PrincipalAclRule) -> str:
 
 
 def _is_chat_allowed(chat_ref: Any, rule: PrincipalAclRule) -> bool:
+    if rule.all_chats and not rule.unlisted_deny:
+        return True
     if _is_empty_lane(rule):
         return False
     normalized = _normalize_chat_ref(chat_ref)
@@ -760,6 +772,9 @@ def filter_tool_result(operation_name: str, result: Any) -> Any:
     if _is_empty_lane(rule):
         if operation_name in _EMPTY_LANE_POST_DENY_OPERATIONS:
             return _deny(operation_name, _empty_lane_deny_msg(rule))
+        return result
+
+    if rule.all_chats:
         return result
 
     if operation_name == "find_chats" and isinstance(result.get("chats"), list):
