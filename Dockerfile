@@ -1,10 +1,10 @@
 # Production-optimized Dockerfile without editable install
-# Uses Alpine Linux with clean dependency installation
+# Uses Debian slim with clean dependency installation
 
-FROM python:3-alpine
+FROM python:3.13-slim
 
 # Install essential runtime dependencies
-RUN apk add --no-cache curl
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -25,18 +25,18 @@ ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Create non-root user for security
-RUN addgroup -g 1000 appuser && \
-    adduser -D -s /bin/sh -u 1000 -G appuser appuser
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -m -s /bin/sh appuser
 
 # Create necessary directories and set permissions before switching user
 RUN mkdir -p logs && \
     chown -R appuser:appuser /app
 
+# Copy real source code with ownership suitable for the non-root runtime
+COPY --chown=appuser:appuser src/ ./src/
+
 # Switch to non-root user
 USER appuser
-
-# Copy real source code (this layer rebuilds when code changes)
-COPY src/ ./src/
 
 # Environment defaults for FastMCP HTTP
 ENV SERVER_MODE=http-auth \
