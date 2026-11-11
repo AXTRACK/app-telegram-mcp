@@ -68,6 +68,7 @@ from src.tools.return_types import (
     SendToPhoneResult,
 )
 from src.tools.search import search_messages_impl
+from src.tools.search.incremental import read_messages_after_id
 
 # Canonical absolute URL for Tools-Reference (appended to each MCP tool description).
 TOOLS_REFERENCE_DOC_URL = "https://github.com/leshchenko1979/fast-mcp-telegram/blob/main/docs/Tools-Reference.md"
@@ -96,6 +97,8 @@ _DESC_GET_MESSAGES = _tool_description(
     "Do not combine message_ids with query or reply_to_id. "
     "Results are ordered by ascending date-time (oldest first) in every mode, "
     "including message_ids and nested context lists; limit selects the newest N. "
+    "For incremental polling, pass after_id with chat_id and no other filters; "
+    "returns oldest-first messages, last_scanned_id and has_more. "
     "Success: messages, has_more, optional total_count and discussion fields. "
 )
 
@@ -313,8 +316,13 @@ def register_tools(mcp: FastMCP) -> None:
         include_replies: IncludeReplies = False,
         auto_expand_batches: AutoExpandBatches = 2,
         include_total_count: IncludeTotalCount = False,
+        after_id: int | None = None,
     ) -> SearchResult:
         """Browse, search, fetch by ids, or load replies in one chat (full doc URL in tool description)."""
+        if after_id is not None:
+            if any((query, message_ids, reply_to_id, min_date, max_date, from_user, context, include_replies, include_total_count)):
+                raise ValueError("after_id is only valid for unfiltered per-chat history")
+            return await read_messages_after_id(chat_id, after_id, limit)
         return await search_messages_impl(
             query=query,
             chat_id=chat_id,

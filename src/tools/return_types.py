@@ -41,6 +41,8 @@ class SearchResult(_ErrorFields, total=False):
 
     messages: list[dict[str, Any]]
     has_more: bool
+    last_scanned_id: int
+    scanned_count: int
     total_count: int
     _warning: str
 
